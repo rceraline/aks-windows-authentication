@@ -1,12 +1,12 @@
 # escape=`
-FROM mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019
+FROM mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2022
 
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'Continue'; $verbosePreference='Continue';"]
 
 # Enable Windows Authentication
 RUN Install-WindowsFeature Web-Windows-Auth –IncludeAllSubFeature
 
-# Install .NET Core
+# Install .NET
 ENV DOTNET_VERSION 7.0.10
 ENV DOTNET_DOWNLOAD_URL https://download.visualstudio.microsoft.com/download/pr/d489c5d0-4d0f-4622-ab93-b0f2a3e92eed/101a2fae29a291956d402377b941f401/dotnet-hosting-7.0.10-win.exe
 
@@ -27,8 +27,7 @@ RUN setx /M PATH $($Env:PATH + ';' + $Env:ProgramFiles + '\dotnet')
 # Enable detection of running in a container
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 
-## Create Web Site and Web Application and unlock sections
-
+# Configure IIS website
 RUN Remove-Website -Name 'Default Web Site'; `
     Set-ItemProperty IIS:\AppPools\DefaultAppPool -Name managedRuntimeVersion -Value ''; `
     Set-ItemProperty IIS:\AppPools\DefaultAppPool -Name enable32BitAppOnWin64 -Value 0; `
@@ -46,7 +45,7 @@ RUN Import-Module IISAdministration; `
 
 # Create a directory for the webapp and copy it
 RUN mkdir c:\webapp
-COPY .\bin\Release\net7.0\publish\ C:\webapp
+COPY .\output\ C:\webapp
 
 
 SHELL ["cmd", "/S", "/C"] 
