@@ -1,11 +1,24 @@
 param location string = resourceGroup().location
+param tenantId string = subscription().tenantId
+
+@description('Admin user account for the DC.')
 param dcAdminUsername string = 'useradmin'
 
 @secure()
 param dcAdminPassword string
 
+@description('Admin user account for the vm01.')
+param vm01AdminUsername string = 'useradmin'
+
+@secure()
+param vm01AdminPassword string
+
 @secure()
 param dcSafeModeAdministratorPassword string
+
+param acrName string
+
+param kvName string
 
 resource vnetHub 'Microsoft.Network/virtualNetworks@2019-11-01' = {
   name: 'vnet-hub'
@@ -53,6 +66,26 @@ resource dcNetworkInterface 'Microsoft.Network/networkInterfaces@2023-04-01' = {
   }
 }
 
+resource vm01NetworkInterface 'Microsoft.Network/networkInterfaces@2023-04-01' = {
+  name: 'nic-vm-01'
+  location: location
+  properties: {
+    ipConfigurations: [
+      {
+        name: 'ipconfig-1'
+        properties: {
+          privateIPAllocationMethod: 'Dynamic'
+          subnet: {
+            id: vnetHub.properties.subnets[0].id
+          }
+          primary: true
+          privateIPAddressVersion: 'IPv4'
+        }
+      }
+    ]
+  }
+}
+
 resource dc 'Microsoft.Compute/virtualMachines@2020-12-01' = {
   name: 'vm-dc-01'
   location: location
@@ -61,7 +94,7 @@ resource dc 'Microsoft.Compute/virtualMachines@2020-12-01' = {
       vmSize: 'Standard_D3_v2'
     }
     osProfile: {
-      computerName: 'computerName'
+      computerName: 'vm-dc-01'
       adminUsername: dcAdminUsername
       adminPassword: dcAdminPassword
     }
@@ -82,6 +115,41 @@ resource dc 'Microsoft.Compute/virtualMachines@2020-12-01' = {
       networkInterfaces: [
         {
           id: dcNetworkInterface.id
+        }
+      ]
+    }
+  }
+}
+
+resource vm01 'Microsoft.Compute/virtualMachines@2020-12-01' = {
+  name: 'vm-01'
+  location: location
+  properties: {
+    hardwareProfile: {
+      vmSize: 'Standard_D3_v2'
+    }
+    osProfile: {
+      computerName: 'vm-01'
+      adminUsername: vm01AdminUsername
+      adminPassword: vm01AdminPassword
+    }
+    storageProfile: {
+      imageReference: {
+        publisher: 'MicrosoftWindowsServer'
+        offer: 'WindowsServer'
+        sku: '2022-Datacenter'
+        version: 'latest'
+      }
+      osDisk: {
+        name: 'disk-vm-01'
+        caching: 'ReadWrite'
+        createOption: 'FromImage'
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        {
+          id: vm01NetworkInterface.id
         }
       ]
     }
@@ -130,5 +198,26 @@ resource bastionHost 'Microsoft.Network/bastionHosts@2022-01-01' = {
         }
       }
     ]
+  }
+}
+
+resource kv 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
+  name: kvName
+  location: location
+  properties: {
+    tenantId: tenantId
+    accessPolicies: []
+    sku: {
+      name: 'standard'
+      family: 'A'
+    }
+  }
+}
+
+resource acr 'Microsoft.ContainerRegistry/registries@2023-06-01-preview' = {
+  name: acrName
+  location: location
+  sku: {
+    name: 'Basic'
   }
 }
