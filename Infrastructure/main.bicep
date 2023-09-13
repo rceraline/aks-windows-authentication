@@ -2,22 +2,11 @@ param location string = resourceGroup().location
 param tenantId string = subscription().tenantId
 
 @description('Admin user account for the DC.')
-param dcAdminUsername string = 'useradmin'
+param username string = 'useradmin'
 
+@description('Admin user account for the DC.')
 @secure()
-param dcAdminPassword string
-
-@description('Admin user account for the vm01.')
-param vm01AdminUsername string = 'useradmin'
-
-@secure()
-param vm01AdminPassword string
-
-@secure()
-param dcSafeModeAdministratorPassword string
-
-@description('Admin user account for windows nodes in aks cluster.')
-param aksWindowsAdminUsername string = 'useradmin'
+param password string
 
 param acrName string = 'cr${uniqueString(resourceGroup().id)}'
 
@@ -31,8 +20,8 @@ var agentCount = 2
 
 var agentVMSize = 'standard_d2s_v3'
 
-resource vnetHub 'Microsoft.Network/virtualNetworks@2019-11-01' = {
-  name: 'vnet-hub'
+resource vnet01 'Microsoft.Network/virtualNetworks@2019-11-01' = {
+  name: 'vnet-01'
   location: location
   properties: {
     addressSpace: {
@@ -45,15 +34,21 @@ resource vnetHub 'Microsoft.Network/virtualNetworks@2019-11-01' = {
     }
     subnets: [
       {
-        name: 'snet-01'
+        name: 'AzureBastionSubnet'
         properties: {
           addressPrefix: '10.0.0.0/24'
         }
       }
       {
-        name: 'AzureBastionSubnet'
+        name: 'snet-01'
         properties: {
           addressPrefix: '10.0.1.0/24'
+        }
+      }
+      {
+        name: 'snet-02'
+        properties: {
+          addressPrefix: '10.0.2.0/24'
         }
       }
     ]
@@ -70,7 +65,7 @@ resource dcNetworkInterface 'Microsoft.Network/networkInterfaces@2023-04-01' = {
         properties: {
           privateIPAllocationMethod: 'Static'
           subnet: {
-            id: vnetHub.properties.subnets[0].id
+            id: vnet01.properties.subnets[1].id
           }
           primary: true
           privateIPAddressVersion: 'IPv4'
@@ -97,7 +92,7 @@ resource vm01NetworkInterface 'Microsoft.Network/networkInterfaces@2023-04-01' =
           privateIPAllocationMethod: 'Static'
           privateIPAddress: '10.0.0.5'
           subnet: {
-            id: vnetHub.properties.subnets[0].id
+            id: vnet01.properties.subnets[1].id
           }
           primary: true
           privateIPAddressVersion: 'IPv4'
@@ -116,8 +111,8 @@ resource dc 'Microsoft.Compute/virtualMachines@2020-12-01' = {
     }
     osProfile: {
       computerName: 'vm-dc-01'
-      adminUsername: dcAdminUsername
-      adminPassword: dcAdminPassword
+      adminUsername: username
+      adminPassword: password
     }
     storageProfile: {
       imageReference: {
@@ -151,8 +146,8 @@ resource vm01 'Microsoft.Compute/virtualMachines@2020-12-01' = {
     }
     osProfile: {
       computerName: 'vm-01'
-      adminUsername: vm01AdminUsername
-      adminPassword: vm01AdminPassword
+      adminUsername: username
+      adminPassword: password
     }
     storageProfile: {
       imageReference: {
@@ -186,7 +181,7 @@ resource dcScript 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = {
     type: 'CustomScriptExtension'
     typeHandlerVersion: '1.10'
     settings: {
-      commandToExecute: 'powershell Install-WindowsFeature AD-Domain-Services -IncludeManagementTools; Install-ADDSForest -DomainName "mycompany.local" -DomainNetbiosName mycompany -InstallDNS -SafeModeAdministratorPassword $(ConvertTo-SecureString "${dcSafeModeAdministratorPassword}" -AsPlainText -Force) -Force'
+      commandToExecute: 'powershell Install-WindowsFeature AD-Domain-Services -IncludeManagementTools; Install-ADDSForest -DomainName "mycompany.local" -DomainNetbiosName mycompany -InstallDNS -SafeModeAdministratorPassword $(ConvertTo-SecureString "${password}" -AsPlainText -Force) -Force'
     }
   }
 }
@@ -211,7 +206,7 @@ resource bastionHost 'Microsoft.Network/bastionHosts@2022-01-01' = {
         name: 'ip-bas-01'
         properties: {
           subnet: {
-            id: vnetHub.properties.subnets[1].id
+            id: vnet01.properties.subnets[0].id
           }
           publicIPAddress: {
             id: basIp.id
@@ -244,56 +239,6 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-06-01-preview' = {
   }
 }
 
-// AKS
-resource vnetAks 'Microsoft.Network/virtualNetworks@2019-11-01' = {
-  name: 'vnet-aks'
-  location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: [
-        '10.1.0.0/16'
-      ]
-    }
-    dhcpOptions: {
-      dnsServers: dnsServers
-    }
-    subnets: [
-      {
-        name: 'snet-01'
-        properties: {
-          addressPrefix: '10.1.0.0/24'
-        }
-      }
-    ]
-  }
-}
-
-resource hubToAks 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = {
-  name: 'hub-to-aks'
-  parent: vnetHub
-  properties: {
-    allowForwardedTraffic: true
-    allowGatewayTransit: true
-    allowVirtualNetworkAccess: true
-    remoteVirtualNetwork: {
-      id: vnetAks.id
-    }
-  }
-}
-
-resource aksToHub 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = {
-  name: 'aks-to-hub'
-  parent: vnetAks
-  properties: {
-    allowForwardedTraffic: true
-    allowGatewayTransit: true
-    allowVirtualNetworkAccess: true
-    remoteVirtualNetwork: {
-      id: vnetHub.id
-    }
-  }
-}
-
 var networkContributorRoleDefinitionId = resourceId('Microsoft.Authorization/roleDefinitions', '4d97b98b-1d4f-4787-a291-c67834d212e7')
 
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2021-09-30-preview' = {
@@ -302,8 +247,8 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2021-
 }
 
 resource vnetNetworkContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-10-01-preview' = {
-  name: guid(managedIdentity.id, vnetAks.id, networkContributorRoleDefinitionId)
-  scope: vnetAks
+  name: guid(managedIdentity.id, vnet01.id, networkContributorRoleDefinitionId)
+  scope: vnet01
   properties: {
     roleDefinitionId: networkContributorRoleDefinitionId
     principalId: managedIdentity.properties.principalId
@@ -330,7 +275,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-02-preview' = {
         vmSize: agentVMSize
         osType: 'Linux'
         mode: 'System'
-        vnetSubnetID: vnetAks.properties.subnets[0].id
+        vnetSubnetID: vnet01.properties.subnets[2].id
       }
       {
         name: 'win01'
@@ -338,7 +283,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-02-preview' = {
         count: agentCount
         vmSize: agentVMSize
         osType: 'Windows'
-        vnetSubnetID: vnetAks.properties.subnets[0].id
+        vnetSubnetID: vnet01.properties.subnets[2].id
       }
     ]
     networkProfile: {
@@ -347,11 +292,13 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-02-preview' = {
       serviceCidr: '10.1.1.0/24'
     }
     windowsProfile: {
-      adminUsername: aksWindowsAdminUsername
-      adminPassword: dcAdminPassword
+      adminUsername: username
+      adminPassword: password
       gmsaProfile: {
         enabled: true
       }
     }
   }
 }
+
+output acrUrl string = '${acr.name}.azurecr.io'
