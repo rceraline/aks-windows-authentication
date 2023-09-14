@@ -12,7 +12,11 @@ param acrName string = 'cr${uniqueString(resourceGroup().id)}'
 
 param kvName string = 'kv-${uniqueString(resourceGroup().id)}'
 
-var dnsServers = [ '168.63.129.16', '10.0.0.4' ]
+var dnsServerId = '10.0.1.4'
+
+var azureDnsServer = '168.63.129.16'
+
+var dnsServers = [ azureDnsServer, dnsServerId ]
 
 var clusterName = 'aks-01'
 
@@ -69,7 +73,7 @@ resource dcNetworkInterface 'Microsoft.Network/networkInterfaces@2023-04-01' = {
           }
           primary: true
           privateIPAddressVersion: 'IPv4'
-          privateIPAddress: '10.0.0.4'
+          privateIPAddress: dnsServerId
         }
       }
     ]
@@ -82,7 +86,7 @@ resource vm01NetworkInterface 'Microsoft.Network/networkInterfaces@2023-04-01' =
   properties: {
     dnsSettings: {
       dnsServers: [
-        '10.0.0.4'
+        dnsServerId
       ]
     }
     ipConfigurations: [
@@ -90,7 +94,7 @@ resource vm01NetworkInterface 'Microsoft.Network/networkInterfaces@2023-04-01' =
         name: 'ipconfig-1'
         properties: {
           privateIPAllocationMethod: 'Static'
-          privateIPAddress: '10.0.0.5'
+          privateIPAddress: '10.0.1.5'
           subnet: {
             id: vnet01.properties.subnets[1].id
           }
