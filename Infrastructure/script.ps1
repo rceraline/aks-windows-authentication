@@ -11,4 +11,3 @@ az deployment group create --resource-group $resourceGroup `
     --name winauth `
     --template-file .\main.bicep `
     --parameters .\main.bicepparam
-

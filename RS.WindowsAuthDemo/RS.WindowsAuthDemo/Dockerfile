@@ -45,7 +45,7 @@ RUN Import-Module IISAdministration; `
 
 # Create a directory for the webapp and copy it
 RUN mkdir c:\webapp
-COPY .\output\ C:\webapp
+COPY .\output\ c:\webapp
 
 
 SHELL ["cmd", "/S", "/C"] 
