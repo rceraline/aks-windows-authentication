@@ -22,7 +22,7 @@ var clusterName = 'aks-01'
 
 var agentCount = 2
 
-var agentVMSize = 'standard_d2s_v3'
+var vmSize = 'Standard_DS3_v2'
 
 resource vnet01 'Microsoft.Network/virtualNetworks@2019-11-01' = {
   name: 'vnet-01'
@@ -111,7 +111,7 @@ resource dc 'Microsoft.Compute/virtualMachines@2020-12-01' = {
   location: location
   properties: {
     hardwareProfile: {
-      vmSize: 'Standard_D3_v2'
+      vmSize: vmSize
     }
     osProfile: {
       computerName: 'vm-dc-01'
@@ -146,7 +146,7 @@ resource vm01 'Microsoft.Compute/virtualMachines@2020-12-01' = {
   location: location
   properties: {
     hardwareProfile: {
-      vmSize: 'Standard_D3_v2'
+      vmSize: vmSize
     }
     osProfile: {
       computerName: 'vm-01'
@@ -276,7 +276,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-02-preview' = {
         name: 'linux01'
         osDiskSizeGB: 0
         count: 1
-        vmSize: agentVMSize
+        vmSize: vmSize
         osType: 'Linux'
         mode: 'System'
         vnetSubnetID: vnet01.properties.subnets[2].id
@@ -285,7 +285,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-02-preview' = {
         name: 'win01'
         osDiskSizeGB: 0
         count: agentCount
-        vmSize: agentVMSize
+        vmSize: vmSize
         osType: 'Windows'
         vnetSubnetID: vnet01.properties.subnets[2].id
       }
