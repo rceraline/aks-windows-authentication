@@ -279,7 +279,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-02-preview' = {
         vmSize: vmSize
         osType: 'Linux'
         mode: 'System'
-        vnetSubnetID: vnet01.properties.subnets[2].id
+        vnetSubnetID: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet01.name, 'snet-02')
       }
       {
         name: 'win01'
@@ -287,13 +287,13 @@ resource aks 'Microsoft.ContainerService/managedClusters@2023-06-02-preview' = {
         count: agentCount
         vmSize: vmSize
         osType: 'Windows'
-        vnetSubnetID: vnet01.properties.subnets[2].id
+        vnetSubnetID: resourceId('Microsoft.Network/virtualNetworks/subnets', vnet01.name, 'snet-02')
       }
     ]
     networkProfile: {
-      dnsServiceIP: '10.1.1.4'
+      dnsServiceIP: '10.0.3.4'
       networkPlugin: 'azure'
-      serviceCidr: '10.1.1.0/24'
+      serviceCidr: '10.0.3.0/24'
     }
     windowsProfile: {
       adminUsername: username
